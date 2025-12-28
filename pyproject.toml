@@ -1,0 +1,72 @@
+[project]
+name = "p3-ir-camera"
+version = "0.1.0"
+description = "Python driver and viewer for P3-series USB thermal cameras"
+readme = "README.md"
+license = "Apache-2.0"
+requires-python = ">=3.10"
+authors = [
+    { name = "Joshua V. Dillon" },
+]
+keywords = ["thermal", "infrared", "camera", "usb", "p3"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: POSIX :: Linux",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Topic :: Multimedia :: Video :: Capture",
+    "Topic :: Scientific/Engineering",
+]
+dependencies = [
+    "numpy>=1.24",
+    "opencv-python>=4.8",
+    "pyusb>=1.2",
+]
+
+[project.optional-dependencies]
+dev = [
+    "basedpyright>=1.10",
+    "pytest>=7.0",
+    "ruff>=0.8",
+]
+
+[project.urls]
+Repository = "https://github.com/jvdillon/p3-ir-camera"
+
+[project.scripts]
+p3-viewer = "p3_viewer:main"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+include = ["p3_camera.py", "p3_viewer.py"]
+
+[tool.ruff]
+fix = true
+show-fixes = true
+line-length = 88
+output-format = "concise"
+target-version = "py310"
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "SIM"]
+ignore = ["E501"]
+
+[tool.ruff.lint.isort]
+force-single-line = true
+lines-after-imports = 2
+
+[tool.basedpyright]
+typeCheckingMode = "standard"
+pythonVersion = "3.10"
+
+[tool.pytest.ini_options]
+testpaths = ["."]
+python_files = ["*_test.py"]
