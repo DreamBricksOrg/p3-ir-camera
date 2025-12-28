@@ -1,3 +1,4 @@
+#!/usr/bin/env python3
 """P3 Thermal Camera Viewer.
 
 Display, colormaps, and image processing (ISP) for the P3 thermal camera.

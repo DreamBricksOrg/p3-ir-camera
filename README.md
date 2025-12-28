@@ -2,6 +2,8 @@
 
 Python driver and viewer for P3-series USB thermal cameras.
 
+![P3 Viewer](screenshots/viewer.png)
+
 **Device**: VID=0x3474, PID=0x45A2, 256x192 native resolution
 
 > **Disclaimer**: This is an independent open-source project. It is not
