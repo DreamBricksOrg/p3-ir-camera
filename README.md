@@ -3,7 +3,7 @@
 Python driver and viewer for P3-series USB thermal cameras.
 
 ![P3 Viewer - Keyboard](screenshots/jvdillon-keyboard.png)
-![P3 Viewer - Chip](screenshots/huberbenno.png)
+![P3 Viewer - Chip](screenshots/huberbenno-chip.png)
 
 Images courtesy of [jvdillon](https://github.com/jvdillon) and
 [huberbenno](https://github.com/huberbenno)
