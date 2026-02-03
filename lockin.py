@@ -20,7 +20,7 @@ class LockInController:
     """Controller to perform lock-in demodulation in a background thread.
 
     Usage:
-      ctrl = LockInController(camera, port="/dev/ttyACM0", frequency=1.0, integration=10.0)
+      ctrl = LockInController(camera, port="/dev/ttyACM0", period=1.0, integration=60.0)
       t = ctrl.start_background()
       ... ctrl.stop() ...
 
@@ -32,8 +32,8 @@ class LockInController:
         camera: P3Camera,
         port: str = "/dev/ttyACM0",
         baud_rate: int = 115200,
-        frequency: float = 1.0,
-        integration: float = 10.0,
+        period: float = 1.0,
+        integration: float = 60.0,
         invert: bool = False,
     ) -> None:
         if serial is None:
@@ -42,7 +42,7 @@ class LockInController:
         self.camera = camera
         self.port = port
         self.baud_rate = int(baud_rate)
-        self.frequency = float(frequency)
+        self.period = float(period)
         self.integration = float(integration)
         self.invert = bool(invert)
 
@@ -60,10 +60,6 @@ class LockInController:
         self._last_quadrature: Optional[np.ndarray] = None
         self._last_amplitude: Optional[np.ndarray] = None
         self._last_angle: Optional[np.ndarray] = None
-        # running accumulators (not normalized)
-        self._acc_in_phase: Optional[np.ndarray] = None
-        self._acc_quadrature: Optional[np.ndarray] = None
-        self._acc_count: int = 0
 
     def start_background(self) -> threading.Thread:
         """Start a background thread to run a single integration and return the Thread."""
@@ -140,12 +136,7 @@ class LockInController:
     # --- Internal implementation -------------------------------------------------
     def _background_worker(self) -> None:
         try:
-            in_phase, quad, amplitude, angle = self.run_once()
-            with self._data_lock:
-                self._last_in_phase = in_phase
-                self._last_quadrature = quad
-                self._last_amplitude = amplitude
-                self._last_angle = angle
+            self.run_once()
         except Exception as exc:
             # Log the error and ensure consumer sees no-results
             print("LockInController error:", exc)
@@ -155,7 +146,7 @@ class LockInController:
                 self._last_amplitude = None
                 self._last_angle = None
 
-    def run_once(self) -> Tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    def run_once(self):
         """Blocking run: perform demodulation and return (in_phase, quadrature, amplitude, angle).
 
         This method will open the serial port, toggle the load for the
@@ -169,16 +160,16 @@ class LockInController:
         quadrature = np.zeros((h, w), dtype=np.float32)
         mag = np.zeros((h, w), dtype=np.float32)
         angle = np.zeros((h, w), dtype=np.float32)
- 
-        start_time = time.time()
+
+        start_time = time.perf_counter()
         last_toggle = start_time
-        period = 1.0 / max(1e-6, self.frequency)
-        half_period = period / 2.0
+        # period (seconds) is the timebase input; compute safe value
+        period = max(1e-6, float(self.period))
         load_on = True
         total_frames = 0
-        # publish interim results at this interval (seconds)
-        update_interval = 0.25
-        last_publish = time.time()
+
+        tick_rate = 25.0
+        tick_interval = 1.0 / tick_rate
 
         ser = None
         try:
@@ -186,7 +177,6 @@ class LockInController:
         except Exception as exc:
             raise RuntimeError(f"Failed to open serial port {self.port}: {exc}")
 
-        # helper to write safely
         def _write_state(on: bool) -> None:
             try:
                 if ser:
@@ -195,18 +185,55 @@ class LockInController:
             except Exception:
                 pass
 
-        # Ensure load initially in 'on' state if requested by original logic
+        # Ensure initial state
         _write_state(load_on)
 
+        # Ensure half_period aligns to tick interval: make half_period an integer multiple
+        # of the frame tick interval by increasing it if necessary.
+        # This avoids fractional alignment issues with toggling.
+        half_period = period / 2.0
+        n_frames = math.ceil(half_period / tick_interval)
+        adjusted_half_period = max(half_period, n_frames * tick_interval)
+        adjusted_period = adjusted_half_period * 2.0
+        if adjusted_period > period:
+            print(f"Adjusted lock-in period from {period:.6f}s to {adjusted_period:.6f}s to align with frame rate {tick_rate}Hz")
+            period = adjusted_period
+            half_period = period / 2.0
+
+        # Ensure total integration time is an integer multiple of the period
+        # by increasing integration if necessary.
+        integration = max(1e-6, float(self.integration))
+        n_periods = math.ceil(integration / period)
+        adjusted_integration = max(integration, n_periods * period)
+        if adjusted_integration > integration:
+            print(f"Adjusted lock-in integration from {integration:.6f}s to {adjusted_integration:.6f}s to be an integer multiple of period {period:.6f}s")
+            integration = adjusted_integration
+
         try:
-            omega = 2.0 * math.pi * self.frequency
-            while not self._stop_event.is_set() and (time.time() - start_time) < self.integration:
-                now = time.time()
-                # Toggle based on elapsed absolute time schedule
+            omega = 2.0 * math.pi / period
+            while not self._stop_event.is_set() and (time.perf_counter() - start_time) < integration:
+                now = time.perf_counter()
+
+                # Handle load toggling
                 if now - last_toggle >= half_period:
                     load_on = not load_on
+                    phase = omega * (now - start_time)
+                    # Debug print, for checking sync between load and integration
+                    print (f'Toggle={load_on}, frame={total_frames}, angle={math.degrees(phase)%360}')
+
                     _write_state(load_on)
                     last_toggle += half_period
+                    # publish interim results in sync with load toggles
+                    if load_on and total_frames > 0:
+                        mag = np.sqrt(np.square(in_phase) + np.square(quadrature)) / float(total_frames)
+                        angle = np.arctan2(quadrature, in_phase)
+                        pub_ip = (in_phase / float(total_frames))
+                        pub_q = (quadrature / float(total_frames))
+                        with self._data_lock:
+                            self._last_in_phase = pub_ip
+                            self._last_quadrature = pub_q
+                            self._last_amplitude = mag
+                            self._last_angle = angle
 
                 # Try to consume a pushed frame from the main thread. If none
                 # are available within a short timeout, fall back to reading
@@ -238,33 +265,17 @@ class LockInController:
 
                 # debug
                 if (total_frames % 3 == 0):
-                    print(f'Frame: {total_frames}, Time: {now - start_time:.2f}/{self.integration:.2f}')
-                    
-                now_pub = time.time()
-                if now_pub - last_publish >= update_interval and total_frames > 0:
-                    with self._data_lock:
-                        # normalize amd compute magnitude/angle before publishing
-                        mag = np.sqrt(np.square(in_phase) + np.square(quadrature)).astype(np.float32) / float(total_frames)
-                        angle = np.arctan2(quadrature, in_phase).astype(np.float32)
-                        pub_ip = (in_phase / float(total_frames)).astype(np.float32)
-                        pub_q = (quadrature / float(total_frames)).astype(np.float32)
-
-                        self._last_in_phase = pub_ip
-                        self._last_quadrature = pub_q
-                        self._last_amplitude = mag
-                        self._last_angle = angle
-
-                    last_publish = now_pub
-
-            # turn load off before returning
+                    print(f'Frame: {total_frames}, Time: {now - start_time:.2f}/{integration:.2f}')
+            # ensure load off before returning
             _write_state(False)
 
+            # Final normalization and output, *should* be same as last interim publish since we
+            # sync the publishes to load-on events and ensure that period and integration align.
             if total_frames > 0:
                 mag = np.sqrt(np.square(in_phase) + np.square(quadrature)) / float(total_frames)
                 angle = np.arctan2(quadrature, in_phase)
                 in_phase /= float(total_frames)
                 quadrature /= float(total_frames)
-
 
             with self._data_lock:
                 self._last_in_phase = in_phase
@@ -272,7 +283,7 @@ class LockInController:
                 self._last_amplitude = mag
                 self._last_angle = angle
 
-            return in_phase, quadrature, mag, angle
+            return
 
         finally:
             try:

@@ -13,17 +13,13 @@ Some external hardware is required, in my case I used an ESP32C3 board on which 
 
 
 New command-line options and defaults are:
-
-`--serial-port` /dev/ttyACM0        Set the serial port used for the controller
-
-`--baud-rate` 115200                        Baud rate for serial port
-
-`--frequency` 1.0                                Frequency in Hz to toggle output
-
-`--integration` 60.0                           Time in seconds over which to integrate
-
-
-
+```
+`--serial-port` /dev/ttyACM0    Set the serial port used for the controller
+`--baud-rate` 115200            Baud rate for serial port
+`--period` 1.0                  Period (seconds) of integration cycle
+`--integration` 60.0            Time in seconds over which to integrate
+`--invert` False                Boolean: invert control output
+```
 Once the viewer is running and sees your thermal image, press 'l' to run the lock-in.  It will start toggling the output and integrating, showing real-time progress as it goes.  The four quadrants of the output window are, on the left, the in-phase and quadrature integrations, and on the right, the amplitude and phase.  I've tried to make use of sane normalization and color maps to make these look reasonable.
 
 

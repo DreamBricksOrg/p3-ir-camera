@@ -178,28 +178,20 @@ def apply_colormap(
     lut = get_colormap(cmap_id)
     return lut[img_u8]
 
-
-def apply_diverging_colormap(data: np.ndarray, cmap_name: str = 'coolwarm',
-                             vmin: float | None = None, vmax: float | None = None,
-                             center: float = 0.0) -> np.ndarray:
+def apply_diverging_colormap(data: np.ndarray, cmap_name: str = 'bwr') -> np.ndarray:
   
     data = np.asarray(data, dtype=np.float32)
-
-
-
-    # Auto-range if not provided (robust to outliers)
-    if vmin is None or vmax is None:
-        abs_max = float(np.nanmax(np.abs(data)))
-        if abs_max <= 0.0:
-            abs_max = 1e-6
-        vmin = -abs_max if vmin is None else vmin
-        vmax = abs_max if vmax is None else vmax
+    lo = float(np.nanpercentile(data, 0.01))
+    hi = float(np.nanpercentile(data, 99.99))
+    if hi <= lo:
+        hi = lo + 1.0
+    norm_data = 2 * (data - lo) / (hi - lo) - 1.0 # Normalize to [-1, 1]
+    data=np.clip(norm_data, -1.0, 1.0)
     
-    #debug
-    #print(f"apply_diverging_colormap: vmin={vmin}, vmax={vmax}, center={center}")
     # Center at 'center' (usually 0) using TwoSlopeNorm or CenteredNorm
-    norm = mcolors.TwoSlopeNorm(vmin=vmin, vcenter=center, vmax=vmax)
-    # Alternative: mcolors.CenteredNorm() if center is always 0 and symmetric
+    # Got better results normalizing and clipping above then using TwoSlopeNorm in this
+    # fashion, vs. using it directly as intended.  ???.
+    norm = mcolors.TwoSlopeNorm(vmin=-1, vcenter=0, vmax=1)
     
     cmap = cm.get_cmap(cmap_name)
     
@@ -330,15 +322,15 @@ class P3Viewer:
     """P3 Thermal Camera Viewer."""
 
     def __init__(self, model: Model | str = Model.P3, serial_port: str = "/dev/ttyACM0",
-                 baud_rate: int = 115200, lockin_frequency: float = 0.72,
-                 lockin_integration: float = 60.0) -> None:
+                 baud_rate: int = 115200, lockin_period: float = 0.72,
+                 lockin_integration: float = 60.0, lockin_invert: bool = False) -> None:
         """Initialize viewer.
 
         Args:
             model: Camera model (P1 or P3).
             serial_port: Serial port for lock-in load controller.
             baud_rate: Baud rate for serial port.
-            lockin_frequency: Lock-in frequency in Hz.
+            lockin_period: Lock-in period in seconds.
             lockin_integration: Integration time in seconds.
         """
         config = get_model_config(model)
@@ -346,8 +338,9 @@ class P3Viewer:
         self.model = config.model
         self.serial_port = serial_port
         self.baud_rate = baud_rate
-        self.lockin_frequency = lockin_frequency
+        self.lockin_period = lockin_period
         self.lockin_integration = lockin_integration
+        self.lockin_invert = bool(lockin_invert)
         self.rotation: int = 0
         self.colormap_idx: int = ColormapID.IRONBOW
         self.mirror: bool = False
@@ -398,7 +391,7 @@ class P3Viewer:
                 # Feed frames to lock-in controller so only main thread reads USB.
                 if self.lockin_controller is not None and self.lockin_running:
                     try:
-                        self.lockin_controller.push_frame(thermal.copy(), time.time())
+                        self.lockin_controller.push_frame(thermal.copy(), time.perf_counter())
                     except Exception:
                         pass
 
@@ -578,13 +571,13 @@ class P3Viewer:
 
     def _normalize(self, arr: NDArray[np.floating]) -> NDArray[np.float32]:
         a = np.asarray(arr, dtype=np.float32)
-        # Use 1st and 99th percentiles to avoid outliers
-        lo = float(np.percentile(a, 1.0))
-        hi = float(np.percentile(a, 99.0))
+        # Just a little clip to eliminate ridiculous outliers
+        lo = float(np.percentile(a, 0.01))
+        hi = float(np.percentile(a, 99.99))
         if hi <= lo:
             hi = lo + 1.0
         norm = (a - lo) / (hi - lo)
-        return (np.clip(norm, 0.0, 1.0))
+        return np.clip(norm, 0, 1.0)
 
     def _composite_lockin_panes(
         self, main_img: NDArray[np.uint8], in_phase: NDArray[np.floating], quad: NDArray[np.floating],
@@ -600,10 +593,10 @@ class P3Viewer:
 
         # Normalize and colorize all four panes
         # In-Phase
-        ip_color = apply_diverging_colormap(self._normalize(in_phase), cmap_name='bwr')
+        ip_color = apply_diverging_colormap(in_phase)
         
         # Quadrature
-        q_color = apply_diverging_colormap(self._normalize(quad), cmap_name='bwr')
+        q_color = apply_diverging_colormap(quad)
 
         # Amplitude (magnitude) - use current colormap for consistency
         amp_norm = self._normalize(amplitude)
@@ -611,7 +604,8 @@ class P3Viewer:
         amp_color = apply_colormap(amp_u8, self.colormap_idx)
         
         # Angle - map [-pi, pi] to color
-        angle_color = apply_diverging_colormap(self._normalize(angle), cmap_name='twilight')
+        masked_angle = np.where(amplitude >= amplitude.mean(), angle, np.nan)
+        angle_color = apply_diverging_colormap(masked_angle, cmap_name='twilight')
 
         # Decide pane dimensions
         pane_w = max(64, w // 3)
@@ -784,7 +778,8 @@ class P3Viewer:
                     # Create and start the lock-in controller with configured parameters
                     self.lockin_controller = LockInController(
                         self.camera, port=self.serial_port, baud_rate=self.baud_rate,
-                        frequency=self.lockin_frequency, integration=self.lockin_integration
+                        period=self.lockin_period, integration=self.lockin_integration,
+                        invert=self.lockin_invert,
                     )
                     self.lockin_thread = self.lockin_controller.start_background()
                     self.lockin_running = True
@@ -879,6 +874,16 @@ def main() -> None:
     """Entry point."""
     import argparse
 
+    def _parse_bool(val: str) -> bool:
+        if isinstance(val, bool):
+            return val
+        s = str(val).strip().lower()
+        if s in ("1", "true", "t", "yes", "y"):
+            return True
+        if s in ("0", "false", "f", "no", "n"):
+            return False
+        raise argparse.ArgumentTypeError(f"invalid boolean value: {val}")
+
     parser = argparse.ArgumentParser(
         description="Thermal Master P3/P1 USB thermal camera viewer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -903,10 +908,10 @@ def main() -> None:
         help="Baud rate for serial port (default: 115200)",
     )
     parser.add_argument(
-        "--frequency",
+        "--period",
         type=float,
         default=1.0,
-        help="Lock-in frequency in Hz (default: 1.0)",
+        help="Lock-in period in seconds (default: 1.0)",
     )
     parser.add_argument(
         "--integration",
@@ -914,13 +919,22 @@ def main() -> None:
         default=60.0,
         help="Lock-in integration time in seconds (default: 60.0)",
     )
+    parser.add_argument(
+        "--invert",
+        nargs="?",
+        const="1",
+        type=_parse_bool,
+        default=False,
+        help="Invert lock-in serial output logic (accepts 0/1 or false/true).",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(level=logging.DEBUG)
 
     try:
-        P3Viewer(model=args.model, serial_port=args.serial_port, baud_rate=args.baud_rate,
-                 lockin_frequency=args.frequency, lockin_integration=args.integration).run()
+           P3Viewer(model=args.model, serial_port=args.serial_port, baud_rate=args.baud_rate,
+               lockin_period=args.period, lockin_integration=args.integration,
+               lockin_invert=args.invert).run()
     except RuntimeError as e:
         print(f"Error: {e}")
     except KeyboardInterrupt:
