@@ -219,7 +219,7 @@ class LockInController:
                     load_on = not load_on
                     phase = omega * (now - start_time)
                     # Debug print, for checking sync between load and integration
-                    print (f'Toggle={load_on}, frame={total_frames}, angle={math.degrees(phase)%360}')
+                    #print (f'Toggle={load_on}, frame={total_frames}, angle={math.degrees(phase)%360}')
 
                     _write_state(load_on)
                     last_toggle += half_period
@@ -264,7 +264,7 @@ class LockInController:
                 total_frames += 1
 
                 # debug
-                if (total_frames % 3 == 0):
+                if (total_frames % 50 == 0):
                     print(f'Frame: {total_frames}, Time: {now - start_time:.2f}/{integration:.2f}')
             # ensure load off before returning
             _write_state(False)
