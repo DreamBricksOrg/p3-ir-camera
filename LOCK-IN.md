@@ -33,31 +33,3 @@ This image is of the ESP32 board which is acting as the lock-in controller.  The
 This one is a 33K resistor connected to the output, being driven with 3.3V from the ESP32.  The power dissipation in this resistor while it's switched on is 330uW, and the resultant heating is clearly visible here.  A second unpowered resistor is next to the target as a control.
 
 ![resistor-lockin.png](screenshots/resistor-lockin.png)
-
-
-
-Python isn't my first language, nor my second or third, so I've used a some AI slop in the form of Github Copilot to help me with this.  I don't think it pulled any outrageous boners.
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
