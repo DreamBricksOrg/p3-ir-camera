@@ -1,6 +1,6 @@
 # P3 IR Camera
 
-Python driver and viewer for P3-series USB thermal cameras.  Improved? with lock-in thermography function.  See lock-in.md
+Python driver and viewer for P3-series USB thermal cameras.  Improved? with lock-in thermography function.  See LOCK-IN.md
 
 ![P3 Viewer - Keyboard](screenshots/jvdillon-keyboard.png)
 ![P3 Viewer - Chip](screenshots/huberbenno-chip.png)
@@ -9,7 +9,7 @@ Images courtesy of [jvdillon](https://github.com/jvdillon) and
 [huberbenno](https://github.com/huberbenno)
 ([PR#11](https://github.com/jvdillon/p3-ir-camera/pull/11)).
 
-![ESP32](esp32-lockin.png)
+![ESP32](screenshots/esp32-lockin.png)
 
 **Devices**:
 
