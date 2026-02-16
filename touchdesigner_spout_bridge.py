@@ -38,7 +38,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--model",
         type=str,
-        default="p3",
+        default="p1",
         choices=["p1", "p3"],
         help="Camera model",
     )
@@ -103,10 +103,7 @@ def main() -> int:
     frame_period = 1.0 / max(args.fps, 1.0)
 
     sender = SpoutGL.SpoutSender()  # pyright: ignore[reportAttributeAccessIssue]
-    if hasattr(sender, "setSenderName"):
-        sender.setSenderName(args.sender)  # pyright: ignore[reportAttributeAccessIssue]
-    elif hasattr(sender, "createSender"):
-        sender.createSender(args.sender, 1, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
+    sender.setSenderName(args.sender)  # pyright: ignore[reportAttributeAccessIssue]
 
     try:
         camera.connect()
@@ -140,6 +137,7 @@ def main() -> int:
             h, w = rgba.shape[:2]
 
             sender.sendImage(rgba, w, h, GL.GL_RGBA, False, 0)  # pyright: ignore[reportAttributeAccessIssue]
+            sender.setFrameSync(args.sender)  # pyright: ignore[reportAttributeAccessIssue]
 
             elapsed = time.perf_counter() - t0
             sleep_s = frame_period - elapsed
