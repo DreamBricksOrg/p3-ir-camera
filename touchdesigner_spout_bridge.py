@@ -22,6 +22,7 @@ from __future__ import annotations
 import argparse
 import contextlib
 import time
+from OpenGL import GL
 
 import cv2
 import numpy as np
@@ -138,7 +139,7 @@ def main() -> int:
             rgba = cv2.cvtColor(bgr, cv2.COLOR_BGR2RGBA)
             h, w = rgba.shape[:2]
 
-            sender.sendImage(rgba, w, h, False, 0)  # pyright: ignore[reportAttributeAccessIssue]
+            sender.sendImage(rgba, w, h, GL.GL_RGBA, False, 0)  # pyright: ignore[reportAttributeAccessIssue]
 
             elapsed = time.perf_counter() - t0
             sleep_s = frame_period - elapsed
