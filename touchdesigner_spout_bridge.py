@@ -102,6 +102,10 @@ def main() -> int:
     frame_period = 1.0 / max(args.fps, 1.0)
 
     sender = SpoutGL.SpoutSender()  # pyright: ignore[reportAttributeAccessIssue]
+    if hasattr(sender, "setSenderName"):
+        sender.setSenderName(args.sender)  # pyright: ignore[reportAttributeAccessIssue]
+    elif hasattr(sender, "createSender"):
+        sender.createSender(args.sender, 1, 1, 0)  # pyright: ignore[reportAttributeAccessIssue]
 
     try:
         camera.connect()
