@@ -106,6 +106,34 @@ p3-viewer --frequency 0.1 --integration 120
 - `b` - Toggle min/max spot marker
 - `v` - Toggle colorbar
 
+
+### TouchDesigner (Windows via Spout)
+
+If you want to route the thermal stream into TouchDesigner on Windows, use the
+included bridge script:
+
+```bash
+# install optional sender dependency
+pip install SpoutGL
+
+# run bridge for P3 (default)
+python touchdesigner_spout_bridge.py --sender P3Thermal
+
+# optional: use P1 model
+python touchdesigner_spout_bridge.py --model p1 --sender P1Thermal
+```
+
+In TouchDesigner:
+
+1. Add a **Spout In TOP**
+2. Set **Sender Name** to `P3Thermal` (or your `--sender` value)
+3. The TOP will receive the thermal video stream in real time
+
+Notes:
+- `--agc temporal` (default) tends to look best for live scenes.
+- `--agc factory` uses camera hardware AGC brightness directly.
+- `--scale` upscales the small native thermal image for easier compositing.
+
 ### Library
 
 ```python
