@@ -45,13 +45,13 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--sender",
         type=str,
-        default="P3Thermal",
+        default="P1Thermal",
         help="Spout sender name shown in TouchDesigner",
     )
     parser.add_argument(
         "--fps",
         type=float,
-        default=30.0,
+        default=25.0,
         help="Target output FPS",
     )
     parser.add_argument(
@@ -73,7 +73,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--scale",
         type=int,
-        default=4,
+        default=1,
         help="Integer upscaling for output image",
     )
     return parser.parse_args()
