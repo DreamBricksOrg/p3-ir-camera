@@ -145,8 +145,6 @@ def build_frame_stats(
         "cmax": cmax,
         "tmin": float(raw_to_celsius_corrected(thermal_raw.ravel()[cmin], env)),
         "tmax": float(raw_to_celsius_corrected(thermal_raw.ravel()[cmax], env)),
-        "range_min": int(np.min(display_u8)),
-        "range_max": int(np.max(display_u8)),
     }
 
     if probe_pixel is not None:
@@ -165,8 +163,6 @@ def send_frame_stats_osc(osc_client: object, prefix: str, frame_stats: dict[str,
     osc_client.send_message(f"{base}/tmax", float(frame_stats["tmax"]))
     osc_client.send_message(f"{base}/cmin", int(frame_stats["cmin"]))
     osc_client.send_message(f"{base}/cmax", int(frame_stats["cmax"]))
-    osc_client.send_message(f"{base}/range_min", int(frame_stats["range_min"]))
-    osc_client.send_message(f"{base}/range_max", int(frame_stats["range_max"]))
     if "tprobe" in frame_stats:
         osc_client.send_message(f"{base}/tprobe", float(frame_stats["tprobe"]))
         osc_client.send_message(f"{base}/probe_x", int(frame_stats["probe_x"]))
