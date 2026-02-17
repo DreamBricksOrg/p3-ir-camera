@@ -15,6 +15,7 @@ from p3_viewer import (
     apply_colormap,
     dde,
     get_colormap,
+    parse_probe_pixel,
     tnr,
 )
 
@@ -195,6 +196,22 @@ class TestTNR:
         # alpha=1 means all current frame
         result = tnr(curr, prev, alpha=1.0)
         np.testing.assert_array_almost_equal(result, curr)
+
+
+class TestProbePixelParse:
+    """Tests for parsing CLI probe pixel argument."""
+
+    def test_parse_probe_pixel_valid(self):
+        assert parse_probe_pixel("12,34") == (12, 34)
+        assert parse_probe_pixel(" 7, 9 ") == (7, 9)
+
+    def test_parse_probe_pixel_rejects_bad_format(self):
+        with pytest.raises(ValueError):
+            parse_probe_pixel("10")
+
+    def test_parse_probe_pixel_rejects_negative(self):
+        with pytest.raises(ValueError):
+            parse_probe_pixel("-1,5")
 
 
 def _run_tests(test_file: str) -> None:

@@ -158,6 +158,22 @@ def _init_colormaps() -> None:
 _init_colormaps()
 
 
+def parse_probe_pixel(val: str) -> tuple[int, int]:
+    """Parse '--probe-pixel x,y' argument."""
+    txt = str(val).strip().lower().replace(" ", "")
+    parts = txt.split(",")
+    if len(parts) != 2:
+        raise ValueError("probe pixel must be in the format 'x,y'")
+    try:
+        x = int(parts[0])
+        y = int(parts[1])
+    except ValueError as exc:
+        raise ValueError("probe pixel values must be integers") from exc
+    if x < 0 or y < 0:
+        raise ValueError("probe pixel values must be >= 0")
+    return x, y
+
+
 def get_colormap(cmap_id: ColormapID | int) -> NDArray[np.uint8]:
     """Get colormap LUT by ID.
 
@@ -332,7 +348,8 @@ class P3Viewer:
 
     def __init__(self, model: Model | str = Model.P3, serial_port: str = "/dev/ttyACM0",
                  baud_rate: int = 115200, lockin_period: float = 1.0,
-                 lockin_integration: float = 60.0, lockin_invert: bool = False) -> None:
+                 lockin_integration: float = 60.0, lockin_invert: bool = False,
+                 probe_pixel: tuple[int, int] | None = None) -> None:
         """Initialize viewer.
 
         Args:
@@ -350,6 +367,7 @@ class P3Viewer:
         self.lockin_period = lockin_period
         self.lockin_integration = lockin_integration
         self.lockin_invert = bool(lockin_invert)
+        self.probe_pixel = probe_pixel
         self.rotation: int = 0
         self.colormap_idx: int = ColormapID.IRONBOW
         self.mirror: bool = False
@@ -548,6 +566,10 @@ class P3Viewer:
         cy, cx = self._get_spot_coords(thermal)
         env = self.camera.env_params
         frame_stats['tspot'] = float(raw_to_celsius_corrected(thermal[cy, cx], env))
+        if self.probe_pixel is not None:
+            px, py = self.probe_pixel
+            frame_stats['probe_coord'] = (py, px)
+            frame_stats['tprobe'] = float(raw_to_celsius_corrected(thermal[py, px], env))
         frame_stats['cmax'] = thermal.argmax()
         frame_stats['cmin'] = thermal.argmin()
         frame_stats['tmin'] = float(raw_to_celsius_corrected(thermal.ravel()[frame_stats['cmin']], env))
@@ -730,6 +752,19 @@ class P3Viewer:
             self.cv_linetype
         )
 
+        if 'tprobe' in frame_stats:
+            px, py = self.probe_pixel if self.probe_pixel is not None else (-1, -1)
+            cv2.putText(
+                img,
+                f"Pixel ({px},{py}): {frame_stats['tprobe']:.1f}C",
+                (10, 40),
+                cv2.FONT_HERSHEY_SIMPLEX,
+                0.5,
+                COLOR_TEXT,
+                1,
+                self.cv_linetype,
+            )
+
         # Bottom status line
         cmap_name = ColormapID(self.colormap_idx).name
         gain_name = self.camera.gain_mode.name
@@ -772,6 +807,10 @@ class P3Viewer:
         if self.hotspot_mode in [HotspotMode.MIN, HotspotMode.MINMAX]:
             cmin_d = self._coord_to_image(divmod(frame_stats['cmin'], tw), thermal, img)
             self._draw_box_marker(cmin_d, img, f"{frame_stats['tmin']:.1f}C", color = COLOR_SPOT_MIN)
+
+        if 'probe_coord' in frame_stats:
+            pcoord_d = self._coord_to_image(frame_stats['probe_coord'], thermal, img)
+            self._draw_box_marker(pcoord_d, img, f"{frame_stats['tprobe']:.1f}C", color=COLOR_TEXT, size=15)
 
         # Help overlay
         if self.show_help:
@@ -970,6 +1009,12 @@ def main() -> None:
             return False
         raise argparse.ArgumentTypeError(f"invalid boolean value: {val}")
 
+    def _parse_probe_pixel_arg(val: str) -> tuple[int, int]:
+        try:
+            return parse_probe_pixel(val)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(str(exc)) from exc
+
     parser = argparse.ArgumentParser(
         description="Thermal Master P3/P1 USB thermal camera viewer",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -1013,14 +1058,30 @@ def main() -> None:
         default=False,
         help="Invert lock-in serial output logic (accepts 0/1 or false/true).",
     )
+    parser.add_argument(
+        "--probe-pixel",
+        type=_parse_probe_pixel_arg,
+        default=None,
+        metavar="X,Y",
+        help="Show corrected temperature at pixel coordinate X,Y (sensor space).",
+    )
     args = parser.parse_args()
+
+    config = get_model_config(args.model)
+    if args.probe_pixel is not None:
+        px, py = args.probe_pixel
+        if px >= config.sensor_w or py >= config.sensor_h:
+            parser.error(
+                f"--probe-pixel out of range for {config.model.value}: "
+                f"valid x=0..{config.sensor_w - 1}, y=0..{config.sensor_h - 1}"
+            )
 
     logging.basicConfig(level=logging.DEBUG)
 
     try:
            P3Viewer(model=args.model, serial_port=args.serial_port, baud_rate=args.baud_rate,
                lockin_period=args.period, lockin_integration=args.integration,
-               lockin_invert=args.invert).run()
+               lockin_invert=args.invert, probe_pixel=args.probe_pixel).run()
     except RuntimeError as e:
         print(f"Error: {e}")
     except KeyboardInterrupt:
