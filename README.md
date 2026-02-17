@@ -122,6 +122,9 @@ python touchdesigner_spout_bridge.py --sender P3Thermal --osc-port 9000
 # optional: use P1 model
 python touchdesigner_spout_bridge.py --model p1 --sender P1Thermal
 
+# optional: add a probe pixel and stream probe channels via OSC
+python touchdesigner_spout_bridge.py --sender P3Thermal --probe-pixel 64,48
+
 # optional: disable OSC metadata and send video only
 python touchdesigner_spout_bridge.py --sender P3Thermal --no-osc
 ```
@@ -132,6 +135,7 @@ In TouchDesigner:
 2. Set **Sender Name** to `P3Thermal` (or your `--sender` value)
 3. Add an **OSC In CHOP** on port `9000`
 4. Read channels from `/p3/tspot`, `/p3/tmin`, `/p3/tmax`, `/p3/cmin`, `/p3/cmax`, `/p3/range_min`, `/p3/range_max`
+5. If `--probe-pixel X,Y` is set, read `/p3/tprobe`, `/p3/probe_x`, `/p3/probe_y`
 
 Notes:
 - `--agc temporal` (default) tends to look best for live scenes.

@@ -29,10 +29,16 @@ import cv2
 import numpy as np
 
 from p3_camera import Model, P3Camera, get_model_config, raw_to_celsius_corrected
-from p3_viewer import agc_fixed, agc_temporal, apply_colormap
+from p3_viewer import agc_fixed, agc_temporal, apply_colormap, parse_probe_pixel
 
 
 def parse_args() -> argparse.Namespace:
+    def _parse_probe_pixel_arg(val: str) -> tuple[int, int]:
+        try:
+            return parse_probe_pixel(val)
+        except ValueError as exc:
+            raise argparse.ArgumentTypeError(str(exc)) from exc
+
     parser = argparse.ArgumentParser(
         description="Publish P3/P1 thermal video to TouchDesigner via Spout",
     )
@@ -100,6 +106,16 @@ def parse_args() -> argparse.Namespace:
         action="store_true",
         help="Disable OSC metadata output",
     )
+    parser.add_argument(
+        "--probe-pixel",
+        type=_parse_probe_pixel_arg,
+        default=None,
+        metavar="X,Y",
+        help=(
+            "Sample corrected temperature at sensor-space pixel X,Y and include "
+            "it in OSC frame_stats output"
+        ),
+    )
     return parser.parse_args()
 
 
@@ -111,14 +127,19 @@ def to_display_u8(ir_brightness: np.ndarray, thermal_raw: np.ndarray, agc: str) 
     return agc_temporal(thermal_raw, pct=1.0)
 
 
-def build_frame_stats(thermal_raw: np.ndarray, display_u8: np.ndarray, env: object) -> dict[str, float | int]:
+def build_frame_stats(
+    thermal_raw: np.ndarray,
+    display_u8: np.ndarray,
+    env: object,
+    probe_pixel: tuple[int, int] | None = None,
+) -> dict[str, float | int]:
     """Create a metadata dictionary compatible with p3_viewer frame statistics."""
     h, w = thermal_raw.shape
     cy, cx = h // 2, w // 2
     cmin = int(thermal_raw.argmin())
     cmax = int(thermal_raw.argmax())
 
-    return {
+    frame_stats: dict[str, float | int] = {
         "tspot": float(raw_to_celsius_corrected(thermal_raw[cy, cx], env)),
         "cmin": cmin,
         "cmax": cmax,
@@ -127,6 +148,14 @@ def build_frame_stats(thermal_raw: np.ndarray, display_u8: np.ndarray, env: obje
         "range_min": int(np.min(display_u8)),
         "range_max": int(np.max(display_u8)),
     }
+
+    if probe_pixel is not None:
+        px, py = probe_pixel
+        frame_stats["probe_x"] = px
+        frame_stats["probe_y"] = py
+        frame_stats["tprobe"] = float(raw_to_celsius_corrected(thermal_raw[py, px], env))
+
+    return frame_stats
 
 
 def send_frame_stats_osc(osc_client: object, prefix: str, frame_stats: dict[str, float | int]) -> None:
@@ -138,6 +167,10 @@ def send_frame_stats_osc(osc_client: object, prefix: str, frame_stats: dict[str,
     osc_client.send_message(f"{base}/cmax", int(frame_stats["cmax"]))
     osc_client.send_message(f"{base}/range_min", int(frame_stats["range_min"]))
     osc_client.send_message(f"{base}/range_max", int(frame_stats["range_max"]))
+    if "tprobe" in frame_stats:
+        osc_client.send_message(f"{base}/tprobe", float(frame_stats["tprobe"]))
+        osc_client.send_message(f"{base}/probe_x", int(frame_stats["probe_x"]))
+        osc_client.send_message(f"{base}/probe_y", int(frame_stats["probe_y"]))
 
 
 def main() -> int:
@@ -163,6 +196,14 @@ def main() -> int:
             osc_client = SimpleUDPClient(args.osc_host, args.osc_port)
 
     config = get_model_config(Model(args.model))
+    if args.probe_pixel is not None:
+        px, py = args.probe_pixel
+        if px >= config.sensor_w or py >= config.sensor_h:
+            raise SystemExit(
+                f"--probe-pixel out of range for {config.model.value}: "
+                f"valid x=0..{config.sensor_w - 1}, y=0..{config.sensor_h - 1}"
+            )
+
     camera = P3Camera(config=config)
 
     frame_period = 1.0 / max(args.fps, 1.0)
@@ -192,7 +233,12 @@ def main() -> int:
                 continue
 
             gray = to_display_u8(ir_brightness, thermal_raw, args.agc)
-            frame_stats = build_frame_stats(thermal_raw, gray, camera.env_params)
+            frame_stats = build_frame_stats(
+                thermal_raw,
+                gray,
+                camera.env_params,
+                probe_pixel=args.probe_pixel,
+            )
             bgr = apply_colormap(gray, args.colormap)
 
             if args.scale > 1:
