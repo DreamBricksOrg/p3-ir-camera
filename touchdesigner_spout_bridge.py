@@ -157,10 +157,10 @@ def main() -> int:
                 SimpleUDPClient,  # type: ignore[import-not-found]
             )
         except ImportError:
-            print("ERROR: python-osc is not installed.")
+            print("WARNING: python-osc is not installed; continuing without OSC metadata output.")
             print("Install it with: pip install python-osc")
-            return 1
-        osc_client = SimpleUDPClient(args.osc_host, args.osc_port)
+        else:
+            osc_client = SimpleUDPClient(args.osc_host, args.osc_port)
 
     config = get_model_config(Model(args.model))
     camera = P3Camera(config=config)
