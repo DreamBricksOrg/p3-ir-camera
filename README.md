@@ -134,7 +134,7 @@ In TouchDesigner:
 1. Add a **Spout In TOP**
 2. Set **Sender Name** to `P3Thermal` (or your `--sender` value)
 3. Add an **OSC In CHOP** on port `9000`
-4. Read channels from `/p3/tspot`, `/p3/tmin`, `/p3/tmax`, `/p3/cmin`, `/p3/cmax`, `/p3/range_min`, `/p3/range_max`
+4. Read channels from `/p3/tspot`, `/p3/tmin`, `/p3/tmax`, `/p3/cmin`, `/p3/cmax`
 5. If `--probe-pixel X,Y` is set, read `/p3/tprobe`, `/p3/probe_x`, `/p3/probe_y`
 
 Notes:

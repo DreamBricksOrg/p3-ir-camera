@@ -38,8 +38,6 @@ def test_send_frame_stats_osc_sends_probe_fields_when_present():
         "tmax": 12.0,
         "cmin": 1,
         "cmax": 2,
-        "range_min": 3,
-        "range_max": 4,
         "tprobe": 9.0,
         "probe_x": 5,
         "probe_y": 6,
