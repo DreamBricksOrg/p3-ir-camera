@@ -135,7 +135,8 @@ In TouchDesigner:
 2. Set **Sender Name** to `P3Thermal` (or your `--sender` value)
 3. Add an **OSC In CHOP** on port `9000`
 4. Read channels from `/p3/tspot`, `/p3/tmin`, `/p3/tmax`, `/p3/cmin`, `/p3/cmax`
-5. If `--probe-pixel X,Y` is set, read `/p3/tprobe`, `/p3/probe_x`, `/p3/probe_y`
+5. Read min/max coordinates from `/p3/min_x`, `/p3/min_y`, `/p3/max_x`, `/p3/max_y`
+6. If `--probe-pixel X,Y` is set, read `/p3/tprobe`, `/p3/probe_x`, `/p3/probe_y`
 
 Notes:
 - `--agc temporal` (default) tends to look best for live scenes.

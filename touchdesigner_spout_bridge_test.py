@@ -28,6 +28,10 @@ def test_build_frame_stats_includes_probe_fields_when_configured(monkeypatch):
     assert stats["probe_x"] == 1
     assert stats["probe_y"] == 0
     assert stats["tprobe"] == 20.0
+    assert stats["min_x"] == 0
+    assert stats["min_y"] == 0
+    assert stats["max_x"] == 1
+    assert stats["max_y"] == 1
 
 
 def test_send_frame_stats_osc_sends_probe_fields_when_present():
@@ -38,6 +42,10 @@ def test_send_frame_stats_osc_sends_probe_fields_when_present():
         "tmax": 12.0,
         "cmin": 1,
         "cmax": 2,
+        "min_x": 1,
+        "min_y": 0,
+        "max_x": 0,
+        "max_y": 1,
         "tprobe": 9.0,
         "probe_x": 5,
         "probe_y": 6,
@@ -49,6 +57,10 @@ def test_send_frame_stats_osc_sends_probe_fields_when_present():
     assert "/p3/tprobe" in paths
     assert "/p3/probe_x" in paths
     assert "/p3/probe_y" in paths
+    assert "/p3/min_x" in paths
+    assert "/p3/min_y" in paths
+    assert "/p3/max_x" in paths
+    assert "/p3/max_y" in paths
 
 
 def test_parse_args_accepts_probe_pixel(monkeypatch):
