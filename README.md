@@ -109,6 +109,8 @@ p3-viewer --frequency 0.1 --integration 120
 
 ### TouchDesigner (Windows via Spout)
 
+![TouchDesigner](screenshots/td_spout_osc.png)
+
 If you want to route the thermal stream into TouchDesigner on Windows, use the
 included bridge script:
 
