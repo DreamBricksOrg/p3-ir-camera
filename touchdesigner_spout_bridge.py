@@ -98,7 +98,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument(
         "--osc-prefix",
         type=str,
-        default="/p3",
+        default="/p1",
         help="OSC address prefix (e.g. /p3 sends /p3/tspot, /p3/tmin, ...)",
     )
     parser.add_argument(
