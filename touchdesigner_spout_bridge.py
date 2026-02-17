@@ -138,11 +138,17 @@ def build_frame_stats(
     cy, cx = h // 2, w // 2
     cmin = int(thermal_raw.argmin())
     cmax = int(thermal_raw.argmax())
+    min_y, min_x = divmod(cmin, w)
+    max_y, max_x = divmod(cmax, w)
 
     frame_stats: dict[str, float | int] = {
         "tspot": float(raw_to_celsius_corrected(thermal_raw[cy, cx], env)),
         "cmin": cmin,
         "cmax": cmax,
+        "min_x": min_x,
+        "min_y": min_y,
+        "max_x": max_x,
+        "max_y": max_y,
         "tmin": float(raw_to_celsius_corrected(thermal_raw.ravel()[cmin], env)),
         "tmax": float(raw_to_celsius_corrected(thermal_raw.ravel()[cmax], env)),
     }
@@ -163,6 +169,10 @@ def send_frame_stats_osc(osc_client: object, prefix: str, frame_stats: dict[str,
     osc_client.send_message(f"{base}/tmax", float(frame_stats["tmax"]))
     osc_client.send_message(f"{base}/cmin", int(frame_stats["cmin"]))
     osc_client.send_message(f"{base}/cmax", int(frame_stats["cmax"]))
+    osc_client.send_message(f"{base}/min_x", int(frame_stats["min_x"]))
+    osc_client.send_message(f"{base}/min_y", int(frame_stats["min_y"]))
+    osc_client.send_message(f"{base}/max_x", int(frame_stats["max_x"]))
+    osc_client.send_message(f"{base}/max_y", int(frame_stats["max_y"]))
     if "tprobe" in frame_stats:
         osc_client.send_message(f"{base}/tprobe", float(frame_stats["tprobe"]))
         osc_client.send_message(f"{base}/probe_x", int(frame_stats["probe_x"]))
