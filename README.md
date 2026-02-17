@@ -116,27 +116,30 @@ included bridge script:
 # install optional sender dependencies
 pip install SpoutGL python-osc
 
-# run bridge for P3 (default) with OSC metadata on localhost:9000
-python touchdesigner_spout_bridge.py --sender P3Thermal --osc-port 9000
+# run bridge with current defaults (P1 model, sender=P1Thermal, OSC=:9000, prefix=/p1)
+python touchdesigner_spout_bridge.py
 
-# optional: use P1 model
-python touchdesigner_spout_bridge.py --model p1 --sender P1Thermal
+# optional: use P3 model and a custom sender name
+python touchdesigner_spout_bridge.py --model p3 --sender P3Thermal
 
 # optional: add a probe pixel and stream probe channels via OSC
-python touchdesigner_spout_bridge.py --sender P3Thermal --probe-pixel 64,48
+python touchdesigner_spout_bridge.py --probe-pixel 64,48
 
 # optional: disable OSC metadata and send video only
-python touchdesigner_spout_bridge.py --sender P3Thermal --no-osc
+python touchdesigner_spout_bridge.py --no-osc
 ```
 
 In TouchDesigner:
 
 1. Add a **Spout In TOP**
-2. Set **Sender Name** to `P3Thermal` (or your `--sender` value)
+2. Set **Sender Name** to `P1Thermal` by default (or your `--sender` value)
 3. Add an **OSC In CHOP** on port `9000`
-4. Read channels from `/p3/tspot`, `/p3/tmin`, `/p3/tmax`, `/p3/cmin`, `/p3/cmax`
-5. Read min/max coordinates from `/p3/min_x`, `/p3/min_y`, `/p3/max_x`, `/p3/max_y`
-6. If `--probe-pixel X,Y` is set, read `/p3/tprobe`, `/p3/probe_x`, `/p3/probe_y`
+4. Read channels from `/p1/tspot`, `/p1/tmin`, `/p1/tmax`, `/p1/cmin`, `/p1/cmax`
+5. Read min/max coordinates from `/p1/min_x`, `/p1/min_y`, `/p1/max_x`, `/p1/max_y`
+6. If `--probe-pixel X,Y` is set, read `/p1/tprobe`, `/p1/probe_x`, `/p1/probe_y`
+
+If you run with `--model p3`, it can be helpful to also set `--osc-prefix /p3` so your
+TouchDesigner OSC paths stay model-specific.
 
 Notes:
 - `--agc temporal` (default) tends to look best for live scenes.
